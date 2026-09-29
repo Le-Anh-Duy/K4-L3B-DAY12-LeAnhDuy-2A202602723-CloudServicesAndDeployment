@@ -26,7 +26,7 @@ Chạy service và gọi `/ask` vài lần. Dán một dòng log JSON bạn thu 
 nêu **hai** việc bạn làm được với dòng log đó mà `print("đã trả lời xong")`
 không làm được.
 
-> Dòng log thu được: `{"event": "ask_completed", "level": "info", "timestamp": "2026-09-29T03:57:52.720529+00:00", "user_id": "sv01", "tokens_in": 2, "tokens_out": 34, "cost_usd": 2.07e-05}`. Vì log có cấu trúc nên ta dễ theo dõi hơn, và có thể tìm log theo từng trường, ví dụ tìm tất cả log có `user_id` là `sv01`. Với `print("đã trả lời xong")` thì không làm được việc này, vì chuỗi đó không có trường nào để máy tách ra lọc.
+> Dòng log thu được: `{"event": "ask_completed", "level": "info", "timestamp": "2026-09-29T03:57:52.720529+00:00", "user_id": "sv01", "tokens_in": 2, "tokens_out": 34, "cost_usd": 2.07e-05}`. Vì log có cấu trúc nên ta dễ theo dõi hơn, và có thể tìm log theo từng trường, ví dụ tìm tất cả log có `user_id` là `sv01`. Với `print("đã trả lời xong")` thì không làm được việc này, vì chuỗi đó không có trường nào để máy tách ra lọc. Việc thứ hai là tổng hợp và cảnh báo bằng số: vì `cost_usd`, `tokens_in`, `tokens_out` là số, ta có thể cộng `cost_usd` theo từng `user_id` mỗi ngày để biết ai tiêu nhiều nhất, hoặc đặt cảnh báo khi số dòng `level = "error"` trong 5 phút vượt ngưỡng. `print("đã trả lời xong")` không có con số nào để cộng hay so sánh, nên chỉ đọc được bằng mắt.
 
 ---
 
@@ -67,7 +67,7 @@ Container mặc định chạy bằng root. Mô tả chuỗi sự kiện dẫn t
 trong code Python của bạn" tới "kẻ tấn công có quyền cao trên máy host", và
 lệnh `USER` cắt đứt chuỗi đó ở chỗ nào.
 
-> Container chạy bằng root thì có toàn quyền ghi file và thực thi lệnh. Nếu code Python có lỗ hổng, kẻ tấn công chiếm được app cũng sẽ có quyền root trong container, và từ đó dễ gây hại cho hệ thống hoặc thoát ra máy host. Lệnh `USER` cho app chạy bằng user thường, chỉ có đúng những quyền cần thiết (least privilege). Nhờ vậy, kể cả khi bị tấn công, kẻ tấn công cũng không đủ quyền để gây hại cho hệ thống hay thoát ra khỏi container.
+> Container chạy bằng root thì có toàn quyền ghi file và thực thi lệnh. Chuỗi sự kiện: (1) code Python có lỗ hổng, ví dụ cho phép chạy lệnh tùy ý (RCE); (2) kẻ tấn công có shell trong container với quyền của user đang chạy app, tức là root; (3) với root, họ sửa được mọi file trong container, cài thêm công cụ, và nếu có volume của host được mount vào thì ghi thẳng lên host; (4) root trong container có cùng UID 0 với root trên host, nên chỉ cần kết hợp thêm một lỗ hổng của kernel hoặc container runtime là thoát ra thành root trên máy host. Lệnh `USER` cho app chạy bằng user thường, chỉ có đúng những quyền cần thiết (least privilege), và cắt chuỗi ngay ở bước (2): shell kẻ tấn công lấy được chỉ có quyền của `appuser` (UID 1000), không sửa được file hệ thống, và kể cả khi thoát được ra ngoài thì cũng chỉ là một user thường trên host. Nó không chặn được lỗ hổng ban đầu, nhưng giảm mạnh thiệt hại khi bị tấn công.
 
 ---
 
@@ -87,7 +87,7 @@ con số đó.
 Hai cơ chế này khác nhau ở điểm nào? Cho một tình huống mà rate limit cho qua
 nhưng cost guard phải chặn, và một tình huống ngược lại.
 
-> Rate limit giới hạn **số request** trong một khoảng thời gian, để chặn việc gọi dồn dập vượt quá khả năng xử lý của server. Cost guard giới hạn **số tiền** mỗi người dùng được tiêu trong tháng. Ví dụ: người dùng đã hết ngân sách tháng, hôm nay họ chưa gửi request nào nên vẫn qua được rate limit, nhưng bị cost guard chặn (402).
+> Rate limit giới hạn **số request** trong một khoảng thời gian, để chặn việc gọi dồn dập vượt quá khả năng xử lý của server. Cost guard giới hạn **số tiền** mỗi người dùng được tiêu trong tháng. Ví dụ: người dùng đã hết ngân sách tháng, hôm nay họ chưa gửi request nào nên vẫn qua được rate limit, nhưng bị cost guard chặn (402). Ngược lại: một người dùng còn gần như nguyên ngân sách nhưng gửi 15 câu hỏi ngắn trong vòng một phút (ví dụ script bị lỗi vòng lặp). Mỗi câu chỉ tốn khoảng 0.00002 USD nên tổng tiền rất nhỏ và cost guard cho qua, nhưng từ request thứ 11 trở đi bị rate limit chặn (429). Kết quả đo trên bản deploy cũng đúng như vậy: 10 lần đầu trả 200, 5 lần sau trả 429.
 
 ---
 
@@ -96,7 +96,7 @@ nhưng cost guard phải chặn, và một tình huống ngược lại.
 Nếu gộp hai endpoint làm một và cho nó kiểm tra Redis, chuyện gì xảy ra với cụm
 3 container khi Redis mất kết nối 30 giây? Trả lời theo đúng thứ tự sự kiện.
 
-> `/health` kiểm tra process có còn sống hay không, phải nhanh, nhẹ và không gọi Redis. `/ready` kiểm tra instance đã sẵn sàng phục vụ chưa: các dependency đã khởi động xong chưa, hoặc nếu từng bị down thì đã hồi phục chưa. Khi Redis mất kết nối, cả 3 container vẫn trả `/health` là ok vì process vẫn chạy bình thường, còn `/ready` trả "not ready" (503) vì phát hiện Redis chưa sẵn sàng.
+> Nếu gộp thành một endpoint có kiểm tra Redis, thứ tự sự kiện khi Redis mất kết nối 30 giây là: (1) Redis mất kết nối; (2) endpoint gộp của cả 3 container cùng trả 503; (3) orchestrator dùng endpoint này làm liveness nên hiểu là cả 3 process đã chết, và restart cả 3 container; (4) trong lúc restart không còn container nào phục vụ, toàn bộ service sập, kể cả những request không cần Redis; (5) container khởi động lại nhưng Redis vẫn chưa sống, nên health check lại fail và bị restart tiếp, lặp đi lặp lại; (6) sau 30 giây Redis sống lại, nhưng các container vẫn phải khởi động lại và vượt qua health check mới phục vụ được, nên thời gian sập dài hơn 30 giây. Restart không sửa được Redis, chỉ làm sự cố lan rộng. Vì vậy phải tách ra: `/health` kiểm tra process có còn sống hay không, phải nhanh, nhẹ và không gọi Redis. `/ready` kiểm tra instance đã sẵn sàng phục vụ chưa: các dependency đã khởi động xong chưa, hoặc nếu từng bị down thì đã hồi phục chưa. Khi Redis mất kết nối, cả 3 container vẫn trả `/health` là ok vì process vẫn chạy bình thường, còn `/ready` trả "not ready" (503) vì phát hiện Redis chưa sẵn sàng. Khi đó không container nào bị restart, load balancer chỉ tạm ngừng gửi traffic vào, và ngay khi Redis sống lại thì `/ready` trả 200, hệ thống phục hồi luôn.
 
 ---
 

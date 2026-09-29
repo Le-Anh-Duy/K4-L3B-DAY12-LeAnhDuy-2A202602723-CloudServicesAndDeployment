@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      # test_cp5 gọi vào bản deploy sống; test_bonus_cicd đòi badge xanh
+      # (chính CI này) nên chạy ở đây sẽ tự khóa mình. Docker test: job build lo.
+      - run: pytest tests/ -v -m "not docker" --ignore=tests/test_cp5.py --ignore=tests/test_bonus_cicd.py
+
+  build:
+    name: Build image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t day12-agent:ci .
+
+  deploy:
+    name: Deploy to Render
+    needs: [test, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    steps:
+      - name: Trigger Render deploy hook
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+      - name: Deploy hook not configured
+        if: env.RENDER_DEPLOY_HOOK_URL == ''
+        run: echo "::notice::Chưa set secret RENDER_DEPLOY_HOOK_URL, bỏ qua bước deploy"
