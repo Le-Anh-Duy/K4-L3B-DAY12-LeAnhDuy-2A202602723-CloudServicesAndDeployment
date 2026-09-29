@@ -6,7 +6,7 @@
 > Cách trả lời: thay dòng `> *Câu trả lời của bạn*` bằng câu trả lời.
 > `grade.py` đếm số câu đã trả lời (15 điểm cho 10 câu).
 >
-> Họ và tên: ..........................  Mã học viên: ..........................
+> Họ và tên: Lê Anh Duy  Mã học viên: 2A202602723
 
 ---
 
@@ -16,7 +16,7 @@ Trong `Settings`, `agent_api_key` không có giá trị mặc định nên app c
 khi khởi động nếu thiếu biến môi trường. Hãy mô tả một tình huống cụ thể mà
 việc "chết sớm" này cứu bạn, so với việc để mặc định `"changeme"`.
 
-> *Câu trả lời của bạn*
+> Không có giá trị thì chương trình báo lỗi khi chưa cần dùng API key, còn nếu có mà giá trị đó không dùng được thì phải đến lúc cần dùng mới bị lỗi. Không để env thì bị lỗi lúc build, debug nhanh hơn. Còn để env mock thì bị lỗi sau khi deploy sửa tốn kém hơn 
 
 ---
 
@@ -26,7 +26,7 @@ Chạy service và gọi `/ask` vài lần. Dán một dòng log JSON bạn thu 
 nêu **hai** việc bạn làm được với dòng log đó mà `print("đã trả lời xong")`
 không làm được.
 
-> *Câu trả lời của bạn*
+> agent-1  | {"event": "ask_completed", "level": "info", "timestamp": "2026-09-29T03:57:52.720529+00:00", "user_id": "sv01", "tokens_in": 2, "tokens_out": 34, "cost_usd": 2.07e-05}; Nhờ việc xuất ra log có cấu trúc thì ta có thể dễ dàng theo dõi, có thể hỗ trợ tìm log theo trường, ví dụ như tôi muốn tìm các log cho user_id là sv01
 
 ---
 
@@ -42,8 +42,8 @@ docker images | grep agent
 
 | Bản | Dung lượng |
 |-----|-----------|
-| 1 stage (bản đầu) | ... MB |
-| Multi-stage | ... MB |
+| 1 stage (bản đầu) | 1.73 GB (~1770 MB) |
+| Multi-stage | 271 MB |
 
 Giải thích: phần dung lượng chênh lệch đó là những gì?
 
@@ -78,7 +78,7 @@ phút đồng hồ (reset lúc giây 00), một người dùng có thể gửi t
 request trong 2 giây liên tiếp khi hạn mức là 10/phút? Giải thích cách đạt được
 con số đó.
 
-> *Câu trả lời của bạn*
+> 20, ta xét 3 khoản L1: [0, 59], L2[60, 119], L3[30, 89], thì với 2 khoản reset liên tục L1, L2, mà ta chỉ request trong khoản L3, 10 request <= 59, và 10 request >= 60 là ta đạt được mức tối đa 20 rpm
 
 ---
 
@@ -87,7 +87,7 @@ con số đó.
 Hai cơ chế này khác nhau ở điểm nào? Cho một tình huống mà rate limit cho qua
 nhưng cost guard phải chặn, và một tình huống ngược lại.
 
-> *Câu trả lời của bạn*
+> Rate limit chặn các tấn công khi mà người dùng request quá khả năng xử lý của server. Còn cost guard thì giới hạn mức sử dụng mà người dùng chi trả cho dịch vụ. Ví dụ như người dùng hết credit tháng, mà ngày hôm đó họ chưa request gì cả thì có thể pass rate limiter mà không pass cost guard.
 
 ---
 
